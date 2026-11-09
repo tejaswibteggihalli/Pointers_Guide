@@ -1,0 +1,1506 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>C Pointers Field Guide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout concept: an instrument-panel field guide. Blue = addresses, amber = data, everywhere.
+   Order: model strip, step-through memory visualizer, arithmetic lab, Hack-to-C map, Q&A drill, cheat sheet. */
+:root{
+  --bg:#EEF1F0; --surface:#FAFBFA; --surface2:#E4E9E7; --ink:#101A16; --ink2:#44534D;
+  --line:#C9D2CE; --line2:#97A6A0;
+  --addr:#1D4ED8; --addr-soft:#DCE6FF; --val:#9A5B00; --val-soft:#FBEBCB;
+  --bad:#B42B1E; --bad-soft:#FADAD5; --good:#16784A; --good-soft:#D2F0E1;
+  --code-bg:#E3E9E6;
+  --font-display:'Archivo',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-body:'Archivo',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0C1311; --surface:#131D1A; --surface2:#1A2723; --ink:#E4ECE8; --ink2:#96A7A0;
+    --line:#263530; --line2:#44564F;
+    --addr:#86A8FF; --addr-soft:#172447; --val:#F2B64D; --val-soft:#3A2A0B;
+    --bad:#FF8273; --bad-soft:#43181A; --good:#5FD6A0; --good-soft:#0F3324;
+    --code-bg:#0F1815; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0C1311; --surface:#131D1A; --surface2:#1A2723; --ink:#E4ECE8; --ink2:#96A7A0;
+  --line:#263530; --line2:#44564F;
+  --addr:#86A8FF; --addr-soft:#172447; --val:#F2B64D; --val-soft:#3A2A0B;
+  --bad:#FF8273; --bad-soft:#43181A; --good:#5FD6A0; --good-soft:#0F3324;
+  --code-bg:#0F1815; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:72px}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 64px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--bg)}
+.wrap{max-width:1120px;margin:0 auto}
+code,pre,.mono{font-family:var(--font-mono)}
+code{font-size:.88em;background:var(--code-bg);padding:.08em .35em;border-radius:3px}
+h1,h2,h3{font-family:var(--font-display);text-wrap:balance;margin:0}
+a{color:var(--addr)}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--addr);outline-offset:2px}
+
+/* header */
+.top{padding-top:40px;padding-bottom:8px}
+.eyebrow{font-family:var(--font-mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink2)}
+h1{font-size:clamp(60px,13vw,132px);font-weight:900;font-stretch:62%;line-height:.88;letter-spacing:-.005em;text-transform:uppercase;margin:10px 0 14px}
+h1 .star{color:var(--addr)}
+.lede{max-width:62ch;font-size:18px;color:var(--ink2);margin:0}
+.lede b{color:var(--ink);font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.chip{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:12px;padding:4px 10px;border:1px solid var(--line2);border-radius:999px;background:var(--surface)}
+.chip i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.chip.a i{background:var(--addr)} .chip.v i{background:var(--val)} .chip.b i{background:var(--bad)}
+
+.ideas{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;margin-top:28px;border-top:2px solid var(--ink);border-bottom:1px solid var(--line2)}
+.idea{padding:16px 18px 18px 0;min-width:0}
+.idea+.idea{padding-left:18px;border-left:1px solid var(--line)}
+.idea h3{font-size:15px;font-weight:700;font-stretch:90%;letter-spacing:.02em;text-transform:uppercase;margin-bottom:6px}
+.idea p{margin:0;color:var(--ink2);font-size:15px}
+@media (max-width:760px){
+  .ideas{grid-template-columns:1fr}
+  .idea,.idea+.idea{padding:14px 0;border-left:0}
+  .idea+.idea{border-top:1px solid var(--line)}
+}
+
+/* nav */
+.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);border-bottom:1px solid var(--line);margin:22px 0 0}
+.nav .wrap{display:flex;gap:6px;overflow-x:auto;padding:10px 0;scrollbar-width:none}
+.nav a{white-space:nowrap;text-decoration:none;color:var(--ink);font-size:14px;font-weight:600;font-stretch:92%;padding:6px 12px;border:1px solid var(--line2);border-radius:999px;background:var(--surface)}
+.nav a:hover{border-color:var(--addr);color:var(--addr)}
+
+/* sections */
+.block{padding-top:56px}
+.sec-head{max-width:70ch;margin-bottom:20px}
+.sec-head h2{font-size:clamp(30px,5vw,48px);font-weight:850;font-stretch:72%;line-height:1;text-transform:uppercase;letter-spacing:.005em}
+.sec-head p{color:var(--ink2);margin:10px 0 0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px}
+
+/* visualizer */
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.tab{border:1px solid var(--line2);background:var(--surface);padding:7px 14px;border-radius:999px;font-size:14px;font-weight:600;font-stretch:92%}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.viz{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"code mem" "ctrl mem" "say mem" "hack mem";grid-template-rows:auto auto auto 1fr;gap:12px 24px}
+.viz-code{grid-area:code}.viz-ctrl{grid-area:ctrl}.viz-mem{grid-area:mem}.viz-say{grid-area:say}.viz-hack{grid-area:hack}
+@media (max-width:860px){
+  .viz{grid-template-columns:minmax(0,1fr);grid-template-areas:"code" "ctrl" "mem" "say" "hack";grid-template-rows:none}
+}
+.code{background:var(--code-bg);border:1px solid var(--line);border-radius:6px;padding:10px 0;font-family:var(--font-mono);font-size:14px;overflow-x:auto}
+.ln{display:flex;gap:12px;padding:3px 14px;white-space:pre;border-left:3px solid transparent;min-width:max-content}
+.ln .no{color:var(--ink2);opacity:.7;width:1.4em;text-align:right;user-select:none}
+.ln.on{background:var(--addr-soft);border-left-color:var(--addr)}
+.ctrl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--line2);background:var(--surface);padding:8px 14px;border-radius:4px;font-weight:600;font-size:14px}
+.btn:hover:not(:disabled){border-color:var(--addr);color:var(--addr)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.primary{background:var(--addr);border-color:var(--addr);color:var(--bg)}
+.btn.primary:hover:not(:disabled){color:var(--bg);filter:brightness(1.1)}
+.stepno{font-family:var(--font-mono);font-size:12px;color:var(--ink2);margin-left:auto}
+.say{min-height:5.2em;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:6px;font-size:15px}
+.say p{margin:0}
+.hack{border:1px dashed var(--line2);border-radius:6px;padding:10px 14px}
+.hack .lbl{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);margin-bottom:6px}
+.hack pre{margin:0;font-size:13px;line-height:1.5;overflow-x:auto;min-height:3em}
+.hack .at{color:var(--addr);font-weight:600}
+.hack .cm{color:var(--ink2);font-style:italic}
+
+.memwrap{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px 100px 12px 12px;min-height:100%}
+@media (max-width:520px){.memwrap{padding-right:64px}}
+#arrows{position:absolute;inset:0;pointer-events:none;overflow:visible}
+.arr{fill:none;stroke:var(--addr);stroke-width:2}
+.arr.dang{stroke:var(--bad);stroke-dasharray:5 4}
+.ahp{fill:var(--addr)} .ahb{fill:var(--bad)}
+.grp{font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);margin:10px 0 4px}
+.grp:first-child{margin-top:0}
+.row{display:grid;grid-template-columns:54px minmax(0,1fr);gap:8px;align-items:center;margin:0 0 6px}
+.addr{font-family:var(--font-mono);font-size:12px;color:var(--addr)}
+.cellbox{min-height:44px;border:1.5px solid var(--line2);border-radius:3px;background:var(--surface);display:flex;align-items:center;flex-wrap:wrap;gap:2px 10px;padding:4px 10px;transition:background .2s}
+.cellbox.w4{width:68%}
+.cellbox .nm{font-family:var(--font-mono);font-weight:600;font-size:14px}
+.cellbox .ty{font-family:var(--font-mono);font-size:11px;color:var(--ink2)}
+.cellbox .val{font-family:var(--font-mono);font-weight:600;font-size:14px;margin-left:auto;color:var(--val)}
+.cellbox.ptr{border-color:var(--addr)}
+.cellbox.ptr .val{color:var(--addr)}
+.cellbox .pill{font-family:var(--font-mono);font-size:10px;padding:1px 6px;border-radius:999px;background:var(--bad-soft);color:var(--bad);text-transform:uppercase;letter-spacing:.06em}
+.row.empty .cellbox{border-style:dashed;border-color:var(--line);background:transparent;color:var(--ink2);opacity:.75}
+.row.empty .cellbox .nm{font-weight:400;font-size:12px}
+.row.dead .cellbox,.row.freed .cellbox{border-style:dashed;border-color:var(--bad);opacity:.65}
+.row.uninit .val{color:var(--bad)}
+.row.flash .cellbox{animation:flash .9s ease-out}
+@keyframes flash{0%{background:var(--val-soft)}100%{background:var(--surface)}}
+.dangling .val{color:var(--bad)!important}
+
+/* arithmetic lab */
+.lab{padding:18px}
+.lab-ctl{display:flex;flex-wrap:wrap;gap:18px 28px;align-items:end;margin-bottom:22px}
+.lab-ctl label,.lab-ctl .lbl{display:block;font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);margin-bottom:6px}
+.seg{display:flex;border:1px solid var(--line2);border-radius:4px;overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:8px 14px;font-family:var(--font-mono);font-size:13px;border-right:1px solid var(--line2)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.lab-ctl input[type=range]{width:min(280px,70vw);accent-color:var(--addr)}
+.tog{display:flex;gap:8px;align-items:center;font-size:14px}
+.bytes{display:flex;flex-direction:column;gap:20px;margin-bottom:24px;max-width:560px}
+.brow{display:grid;grid-template-columns:54px minmax(0,1fr);gap:8px;align-items:center}
+.bcells{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:2px}
+.b{position:relative;height:34px;border:1px solid var(--line);background:transparent;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:11px;color:var(--ink2)}
+.b.in{background:var(--val-soft);color:var(--val);border-color:var(--val)}
+.b.in.e1{background:color-mix(in srgb,var(--val-soft) 45%,var(--surface))}
+.b.sel{background:var(--addr);color:var(--bg);border-color:var(--addr);font-weight:600}
+.b.selbad{background:var(--bad);color:var(--bg);border-color:var(--bad)}
+.b[data-tag]::after{content:attr(data-tag);position:absolute;top:100%;left:0;margin-top:2px;white-space:nowrap;font-size:10px;color:var(--ink);background:var(--surface);border:1px solid var(--line2);padding:0 4px;border-radius:2px;z-index:2}
+.b.cstart{outline:2px solid var(--ink);outline-offset:-2px}
+.calc{display:grid;gap:8px;font-family:var(--font-mono);font-size:14px;max-width:720px}
+.calc div{display:flex;flex-wrap:wrap;gap:4px 10px;padding:8px 12px;background:var(--code-bg);border-radius:4px}
+.calc .k{color:var(--ink2)}
+.calc b{color:var(--addr)}
+.status{margin-top:14px;padding:10px 14px;border-radius:4px;font-size:15px;max-width:720px}
+.status.ok{background:var(--good-soft);color:var(--ink);border-left:4px solid var(--good)}
+.status.warn{background:var(--val-soft);border-left:4px solid var(--val)}
+.status.bad{background:var(--bad-soft);border-left:4px solid var(--bad)}
+
+/* tables */
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:14.5px}
+th,td{text-align:left;vertical-align:top;padding:10px 14px;border-bottom:1px solid var(--line)}
+th{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2);background:var(--surface2);font-weight:500}
+tr:last-child td{border-bottom:0}
+td:first-child{font-weight:600}
+
+/* memory map */
+.maps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;margin-top:28px}
+@media (max-width:760px){.maps{grid-template-columns:1fr}}
+.map h3{font-size:14px;font-family:var(--font-mono);font-weight:500;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;color:var(--ink2)}
+.seg-list{display:flex;flex-direction:column;border:1.5px solid var(--ink);border-radius:4px;overflow:hidden}
+.seg-list>div{display:flex;justify-content:space-between;gap:12px;padding:8px 12px;border-bottom:1px solid var(--line2);background:var(--surface);min-width:0}
+.seg-list>div:last-child{border-bottom:0}
+.seg-list .nm{font-weight:600;min-width:0}
+.seg-list .nm small{display:block;font-weight:400;color:var(--ink2);font-size:13px}
+.seg-list .ad{font-family:var(--font-mono);font-size:12px;color:var(--addr);text-align:right;white-space:nowrap}
+.seg-list .tall{padding-block:22px}
+.seg-list .gap{background:repeating-linear-gradient(135deg,transparent 0 8px,var(--line) 8px 9px);color:var(--ink2)}
+.seg-list .io{background:var(--val-soft)}
+.seg-list .nul{background:var(--bad-soft)}
+.note{font-size:13.5px;color:var(--ink2);margin:8px 0 0}
+
+/* Q&A */
+.qa-tools{position:sticky;top:calc(env(safe-area-inset-top,0px) + 54px);z-index:10;background:var(--bg);padding:10px 0;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+.qa-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.cat{border:1px solid var(--line2);background:var(--surface);padding:5px 12px;border-radius:999px;font-size:13.5px;font-weight:600;font-stretch:92%}
+.cat[aria-pressed="true"]{background:var(--addr);border-color:var(--addr);color:var(--bg)}
+.cat .n{font-family:var(--font-mono);font-weight:400;font-size:11px;margin-left:6px;opacity:.8}
+.qa-row input[type=search]{flex:1 1 200px;min-width:0;font:inherit;padding:7px 12px;border:1px solid var(--line2);border-radius:4px;background:var(--surface);color:var(--ink)}
+.progress{display:flex;align-items:center;gap:12px;font-family:var(--font-mono);font-size:12px;color:var(--ink2)}
+.bar{flex:1 1 120px;max-width:260px;height:8px;background:var(--surface2);border-radius:99px;overflow:hidden;border:1px solid var(--line)}
+.bar i{display:block;height:100%;background:var(--good);width:0;transition:width .3s}
+.qlist{display:flex;flex-direction:column;gap:14px;margin-top:18px}
+.q{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px 18px;min-width:0}
+.q.got{border-left:4px solid var(--good)}
+.q.review{border-left:4px solid var(--val)}
+.q-head{display:flex;gap:12px;align-items:baseline}
+.q-n{font-family:var(--font-mono);font-size:12px;color:var(--addr);flex:none}
+.q h3{font-size:18px;font-weight:650;font-stretch:96%;line-height:1.3}
+.q-cat{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2);margin:2px 0 0 0}
+.q-body,.q-ans{margin-top:12px;min-width:0}
+.q-ans{border-top:1px dashed var(--line2);padding-top:12px}
+.q-body p,.q-ans p{margin:0 0 10px;max-width:70ch}
+.q-ans ul{margin:0 0 10px;padding-left:20px;max-width:70ch}
+.q-ans li{margin-bottom:4px}
+pre.cb{margin:0 0 12px;background:var(--code-bg);border:1px solid var(--line);border-radius:4px;padding:10px 14px;overflow-x:auto;font-size:13px;line-height:1.5}
+pre.cb code{background:none;padding:0;font-size:inherit}
+.k{font-weight:600}.s{color:var(--good)}.n{color:var(--val)}.c{color:var(--ink2);font-style:italic}.pp{color:var(--addr)}
+.q-act{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center}
+.q-act .btn{padding:6px 12px}
+.btn.got.on{background:var(--good);border-color:var(--good);color:var(--bg)}
+.btn.rev.on{background:var(--val);border-color:var(--val);color:var(--bg)}
+.empty-note{padding:24px;text-align:center;color:var(--ink2)}
+
+.rules{columns:2 340px;column-gap:32px;margin:0;padding-left:22px}
+.rules li{margin-bottom:8px;break-inside:avoid}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;margin-top:24px}
+.two>*{min-width:0}
+@media (max-width:860px){.two{grid-template-columns:minmax(0,1fr)}}
+.foot{margin-top:56px;padding-top:16px;border-top:1px solid var(--line);color:var(--ink2);font-size:13.5px}
+</style>
+
+<div class="wrap">
+<header class="top">
+  <div class="eyebrow">C field guide for people who built the computer first</div>
+  <h1>Pointer<span class="star">*</span>s</h1>
+  <p class="lede">You wired RAM from gates and wrote <b>@x; M=D</b> in Hack. A C pointer is that same idea with types on top. Step through memory, play with the arithmetic, then drill <b id="qcount">70</b> questions on every edge case that bites.</p>
+  <div class="legend">
+    <span class="chip a"><i></i>blue = an address</span>
+    <span class="chip v"><i></i>amber = data stored</span>
+    <span class="chip b"><i></i>red = undefined behavior</span>
+  </div>
+  <div class="ideas">
+    <div class="idea"><h3>Memory is numbered boxes</h3><p>Every byte has an address, like RAM[k] in Hack. A variable is a run of boxes with a name.</p></div>
+    <div class="idea"><h3>A pointer is a box holding an address</h3><p>It is an ordinary variable whose value is another box's number. <code>&amp;x</code> makes the number, <code>*p</code> follows it.</p></div>
+    <div class="idea"><h3>The type decides the step and the width</h3><p><code>p + 1</code> moves one element; <code>*p</code> reads that element's size. Hack had one size: one 16-bit word.</p></div>
+  </div>
+</header>
+</div>
+
+<nav class="nav" aria-label="Sections"><div class="wrap">
+  <a href="#viz">Step through</a><a href="#lab">Arithmetic lab</a><a href="#hack">Hack to C</a><a href="#map">Memory maps</a><a href="#qa">Questions</a><a href="#cheat">Cheat sheet</a>
+</div></nav>
+
+<main class="wrap">
+
+<section class="block" id="viz">
+  <div class="sec-head"><h2>Step through memory</h2><p>Pick a scene and press Next step. Dashed slots are addresses the compiler has reserved but the program has not reached yet. Addresses are simplified (real ones are 12 hex digits).</p></div>
+  <div class="tabs" role="tablist" id="sceneTabs" aria-label="Scenes"></div>
+  <div class="viz">
+    <div class="viz-code code" id="vcode" aria-label="Program"></div>
+    <div class="viz-ctrl ctrl">
+      <button class="btn" id="prev">Back</button>
+      <button class="btn primary" id="next">Next step</button>
+      <button class="btn" id="reset">Restart</button>
+      <span class="stepno" id="stepno"></span>
+    </div>
+    <div class="viz-mem"><div class="memwrap" id="memwrap">
+      <svg id="arrows" aria-hidden="true"><defs>
+        <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="ahp"/></marker>
+        <marker id="ahb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="ahb"/></marker>
+      </defs><g id="arrg"></g></svg>
+      <div id="mem"></div>
+    </div></div>
+    <div class="viz-say say" id="say" aria-live="polite"></div>
+    <div class="viz-hack hack"><div class="lbl" id="hacklbl">The same move in Hack</div><pre id="hackpre"></pre></div>
+  </div>
+</section>
+
+<section class="block" id="lab">
+  <div class="sec-head"><h2>Arithmetic lab</h2><p>Pick an element type and move <code>i</code>. The blue bytes are what <code>*(p + i)</code> would read. Notice the stride changes with the type, and what happens at the two ends of the array.</p></div>
+  <div class="panel lab">
+    <div class="lab-ctl">
+      <div><span class="lbl" id="tlbl">Type of p</span><div class="seg" id="typeSeg" role="group" aria-labelledby="tlbl"></div></div>
+      <div><label for="idx">Offset i: <span id="idxv" class="mono"></span></label><input type="range" id="idx" min="-1" max="4" step="1" value="2"></div>
+      <label class="tog" for="showc"><input type="checkbox" id="showc" checked> also show <code>(char *)p + i</code></label>
+    </div>
+    <div class="bytes" id="bytes" aria-label="Byte grid"></div>
+    <div class="calc" id="calc"></div>
+    <div class="status" id="status" role="status"></div>
+    <p class="note">The array is <code>T a[4]</code> at 0x1000 and <code>T *p = a;</code>. Amber is the array, blue is the bytes <code>*(p + i)</code> would touch, and the black-outlined byte is where <code>(char *)p + i</code> lands.</p>
+  </div>
+</section>
+
+<section class="block" id="hack">
+  <div class="sec-head"><h2>From Hack to C</h2><p>Everything you learned still holds. This table shows where each Hack idea lands in C and what C adds.</p></div>
+  <div class="tbl"><table>
+    <thead><tr><th>In nand2tetris</th><th>In C</th><th>What changes</th></tr></thead>
+    <tbody>
+      <tr><td>RAM[k], a 16-bit word</td><td>The byte at address k</td><td>C addresses bytes. An <code>int</code> spans 4 of them, so objects have a size and alignment.</td></tr>
+      <tr><td><code>@x</code> then <code>D=A</code></td><td><code>&amp;x</code></td><td>Same thing: the address of x, not its contents.</td></tr>
+      <tr><td><code>@p</code>, <code>A=M</code>, then <code>M</code></td><td><code>*p</code></td><td>Load the pointer into A, then M is the pointee. C emits the width the type needs (1, 2, 4, 8 bytes).</td></tr>
+      <tr><td><code>A=A+1</code></td><td><code>p + 1</code></td><td>Hack always steps one cell. C steps <code>sizeof(*p)</code> bytes.</td></tr>
+      <tr><td><code>SP</code>, <code>LCL</code>, <code>ARG</code>, <code>THIS</code>, <code>THAT</code> are RAM[0..4]</td><td>Stack pointer, frame pointer and friends are registers the compiler manages</td><td>They are pointers too. <code>push local 2</code> is <code>*(LCL + 2)</code>.</td></tr>
+      <tr><td><code>pointer 1</code> and <code>that i</code></td><td><code>p = addr; p[i]</code></td><td>Exactly the VM's way of implementing <code>a[i]</code>: set THAT, then index off it.</td></tr>
+      <tr><td>Jack <code>a[i]</code></td><td><code>a[i]</code> is <code>*(a + i)</code></td><td>Same definition. C also scales by element size.</td></tr>
+      <tr><td><code>SCREEN</code> = 16384, <code>KBD</code> = 24576</td><td><code>volatile uint16_t *</code> at a fixed address</td><td>Memory-mapped I/O works the same way on bare metal. In an OS process those addresses are not yours.</td></tr>
+      <tr><td><code>Memory.alloc</code> / <code>deAlloc</code></td><td><code>malloc</code> / <code>free</code></td><td>Same contract and the same bugs: leaks, double free, use after free.</td></tr>
+      <tr><td>A Jack object variable</td><td>A pointer to a heap struct</td><td>In Jack the pointer is hidden. In C you see and manage it.</td></tr>
+      <tr><td>Any address in 0..32767 works</td><td>Only mapped addresses work</td><td>The MMU and OS add protection (segfaults). Most bugs do not trip it; they just corrupt data.</td></tr>
+      <tr><td>Code lives in ROM</td><td>Code lives in memory too</td><td>Function pointers are addresses of code. Returning into a smashed stack runs attacker code.</td></tr>
+      <tr><td>The CPU does what you wrote</td><td>The compiler may assume UB never happens</td><td>An optimizer rewrites your program under that assumption. Hack had no optimizer between you and the chip.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="block" id="map">
+  <div class="sec-head"><h2>Memory maps side by side</h2><p>Heights are not to scale. High addresses are at the top.</p></div>
+  <div class="maps">
+    <div class="map">
+      <h3>Hack RAM (16-bit words)</h3>
+      <div class="seg-list">
+        <div class="io"><span class="nm">KBD<small>one word, the key code</small></span><span class="ad">24576</span></div>
+        <div class="io tall"><span class="nm">SCREEN<small>512 x 256 pixels, 1 bit each</small></span><span class="ad">16384 to 24575</span></div>
+        <div class="tall"><span class="nm">Heap<small>Memory.alloc blocks</small></span><span class="ad">2048 to 16383</span></div>
+        <div class="tall"><span class="nm">Stack<small>grows up from 256</small></span><span class="ad">256 to 2047</span></div>
+        <div><span class="nm">Statics<small>one per Jack static variable</small></span><span class="ad">16 to 255</span></div>
+        <div><span class="nm">Registers<small>SP=0 LCL=1 ARG=2 THIS=3 THAT=4, temps, R13 to R15</small></span><span class="ad">0 to 15</span></div>
+      </div>
+      <p class="note">Program code is in a separate ROM.</p>
+    </div>
+    <div class="map">
+      <h3>C process (bytes), typical 64-bit Linux</h3>
+      <div class="seg-list">
+        <div class="tall"><span class="nm">Stack<small>locals, parameters, return addresses; grows down</small></span><span class="ad">high</span></div>
+        <div class="gap"><span class="nm">Unmapped gap, shared libraries</span><span class="ad">&nbsp;</span></div>
+        <div class="tall"><span class="nm">Heap<small>malloc blocks; grows up</small></span><span class="ad"></span></div>
+        <div><span class="nm">.bss<small>zero-initialized globals</small></span><span class="ad"></span></div>
+        <div><span class="nm">.data<small>initialized globals</small></span><span class="ad"></span></div>
+        <div><span class="nm">.rodata<small>string literals, const data</small></span><span class="ad"></span></div>
+        <div><span class="nm">.text<small>machine code</small></span><span class="ad"></span></div>
+        <div class="nul"><span class="nm">Unmapped page at 0<small>why a NULL dereference usually faults</small></span><span class="ad">0x0</span></div>
+      </div>
+      <p class="note">Addresses are randomized on each run (ASLR), so printed pointers differ between executions.</p>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="qa">
+  <div class="sec-head"><h2>Edge-case drill</h2><p>Read the question, answer it in your head, then reveal. Mark each one as got it or review. Your marks stay in this browser.</p></div>
+  <div class="qa-tools">
+    <div class="qa-row" id="cats" role="group" aria-label="Filter by topic"></div>
+    <div class="qa-row">
+      <input type="search" id="qsearch" placeholder="Search questions and answers" aria-label="Search questions">
+      <button class="btn" id="showall" aria-pressed="false">Reveal all answers</button>
+      <button class="btn" id="onlyrev" aria-pressed="false">Review list only</button>
+    </div>
+    <div class="progress"><span id="ptext"></span><span class="bar"><i id="pbar"></i></span><button class="btn" id="clearmarks" style="padding:3px 10px;font-size:12px">Clear marks</button></div>
+  </div>
+  <div class="qlist" id="qlist"></div>
+  <div class="empty-note" id="qempty" hidden>No questions match. Clear the search or pick another topic.</div>
+</section>
+
+<section class="block" id="cheat">
+  <div class="sec-head"><h2>Cheat sheet</h2><p>What to remember when the debugger is open.</p></div>
+  <div class="tbl"><table>
+    <thead><tr><th>Symptom</th><th>Usual cause</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr><td>Crash on first use of a pointer</td><td>Uninitialized or NULL pointer</td><td>Initialize at declaration; check before use.</td></tr>
+      <tr><td>Garbage after a function returns</td><td>Returned the address of a local</td><td>Caller-provided buffer, heap allocation, or static.</td></tr>
+      <tr><td>Crash inside <code>free</code> or <code>malloc</code></td><td>Heap corruption from an earlier overflow, or double free</td><td>Run with AddressSanitizer; it names the allocation.</td></tr>
+      <tr><td>Off-by-one corrupts the next variable</td><td>Missing <code>+ 1</code> for the NUL, or <code>&lt;=</code> in a loop</td><td>Allocate <code>strlen + 1</code>; loop with <code>i &lt; n</code>.</td></tr>
+      <tr><td>Countdown loop never ends</td><td>Unsigned index compared with <code>&gt;= 0</code></td><td><code>for (size_t i = n; i-- &gt; 0; )</code></td></tr>
+      <tr><td>String compare is always false</td><td><code>==</code> compares addresses</td><td><code>strcmp(a, b) == 0</code></td></tr>
+      <tr><td>List head is not updated</td><td>Passed <code>Node *</code>, changed the copy</td><td>Pass <code>Node **</code> or return the new head.</td></tr>
+      <tr><td>Works, then fails after the buffer grows</td><td>Pointer into a block that <code>realloc</code> moved</td><td>Store indices, or recompute pointers.</td></tr>
+      <tr><td>Memory use keeps climbing</td><td>Lost the last pointer to a block</td><td>One owner per block; <code>valgrind --leak-check=full</code>.</td></tr>
+      <tr><td>Check disappears at <code>-O2</code></td><td>Dereference before the NULL test</td><td>Test first, dereference second.</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="two">
+    <div class="panel" style="padding:18px 20px">
+      <h3 style="font-size:20px;margin-bottom:10px;font-stretch:80%;font-weight:800;text-transform:uppercase">Ten rules</h3>
+      <ol class="rules">
+        <li>Initialize every pointer to NULL or a valid address.</li>
+        <li>Check what <code>malloc</code> returns.</li>
+        <li>Allocate with <code>sizeof *p</code>.</li>
+        <li>Give every heap block exactly one owner who frees it.</li>
+        <li>Never return the address of a local.</li>
+        <li>Pass a length with every pointer to an array.</li>
+        <li>Test the pointer on the left of <code>&amp;&amp;</code>, use it on the right.</li>
+        <li>Set a pointer to NULL after <code>free</code>, then still fix the ownership.</li>
+        <li>Make read-only parameters <code>const T *</code>.</li>
+        <li>Build with <code>-Wall -Wextra</code> and sanitizers while developing.</li>
+      </ol>
+    </div>
+    <div class="panel" style="padding:18px 20px">
+      <h3 style="font-size:20px;margin-bottom:10px;font-stretch:80%;font-weight:800;text-transform:uppercase">Precedence, tightest first</h3>
+      <pre class="cb" style="margin:0"><code><span class="c">// 1  postfix</span>  a[i]  f()  s.m  p-&gt;m  p++  p--
+<span class="c">// 2  prefix </span>  *p  &amp;x  !x  -x  ++p  --p  sizeof  (T)
+<span class="c">// 3  binary </span>  * / %   then   + -   then   &lt; &lt;= &gt; &gt;=
+<span class="c">//    then   </span>  == !=   &amp;&amp;   ||   ?:   =   ,
+
+*p++   <span class="c">// *(p++)</span>
+*p.x   <span class="c">// *(p.x)  not (*p).x</span>
+&amp;a[i]  <span class="c">// &amp;(a[i])</span>
+-&gt;     <span class="c">// binds tighter than * and &amp;</span></code></pre>
+    </div>
+  </div>
+</section>
+
+<div class="foot">Examples assume a 64-bit little-endian system with C11 or later. Check your compiler's behavior with <code>-Wall -Wextra -fsanitize=address,undefined</code>.</div>
+</main>
+
+<script type="text/plain" id="qa-src">
+## Basics
+
+### What exactly is a pointer? Is it just an integer?
+>>>
+A pointer is a variable whose **value is a memory address**, plus a **type** that says what lives there. The type is what separates it from a plain integer:
+- `p + 1` moves by `sizeof(*p)` bytes, not by 1.
+- `*p` reads or writes exactly `sizeof(*p)` bytes starting at that address.
+- The compiler refuses to mix pointer types without a cast.
+On a 64-bit machine every object pointer is 8 bytes. In Hack terms, it is a RAM cell whose contents you later load into the A register.
+If you need the address as a number, convert explicitly with `uintptr_t` (see the integer-cast question below).
+
+### What is the difference between `&` and `*`?
+```c
+int x = 5;
+int *p = &x;    // here * is part of the TYPE: "p is a pointer to int"
+*p = 6;         // here * is an OPERATOR: "the object p points to"
+int **pp = &p;  // the address of a pointer
+```
+>>>
+- `&x` means "address of x". It needs something that has an address; `&5` and `&(a + b)` are errors.
+- `*p` as an expression means "the object at address p". It is itself an lvalue, so you can assign to it or take its address: `&*p` is just `p`.
+- `*` in a declaration is not an operator. It only says "this name is a pointer".
+- `*&x` is `x`.
+In Hack: `@x` then `D=A` is `&x`; `A=M` followed by using `M` is `*p`.
+
+### In `int* a, b;`, what is the type of `b`?
+>>>
+`b` is a plain `int`. The `*` binds to the declarator `a`, not to the type, so only `a` is a pointer.
+```c
+int *a, b;     // a: int *, b: int
+int *a, *b;    // both pointers
+```
+Safest habit: one declaration per line, with the `*` next to the name.
+
+### What value does an uninitialized `int *p;` hold?
+```c
+int *p;
+*p = 5;
+```
+>>>
+A local pointer has an **indeterminate** value: whatever bytes were left on the stack by earlier calls. Dereferencing it is undefined behavior. It may crash, or silently overwrite some unrelated variable.
+- Initialize at the declaration: `int *p = NULL;` or point it at something real.
+- Globals and `static` variables are zero-initialized, so a global pointer starts as NULL.
+
+### What is NULL, and does dereferencing it always crash?
+>>>
+`NULL` is a null pointer constant: a pointer value guaranteed not to equal the address of any valid object or function. Use it for "points to nothing".
+- `if (p)`, `if (p != NULL)` and `if (p != 0)` all test the same thing.
+- Dereferencing NULL is **undefined behavior**. A desktop OS usually leaves page 0 unmapped, so you get a segfault, but that is the OS helping, not the language. On some microcontrollers address 0 is real memory, and the compiler may assume the pointer is never NULL and delete your checks.
+- `free(NULL)` is defined and does nothing.
+- `p->big_array[100000]` with `p == NULL` touches address 400000, which may be mapped. A NULL check matters even for large offsets.
+
+### How big is a pointer?
+>>>
+`sizeof(void *)` is 8 on 64-bit platforms and 4 on 32-bit ones. It does not depend on the pointee: `sizeof(char *)` equals `sizeof(double *)` on every mainstream platform (the standard does not strictly promise it, and function pointers may differ in principle). A Hack pointer would be one 16-bit word.
+Never assume `sizeof(int) == sizeof(int *)`. That is the classic 32-to-64-bit porting bug.
+
+### How do I print a pointer?
+```c
+int x = 3;
+printf("%p\n", (void *)&x);   // correct
+printf("%d\n", &x);           // wrong: undefined behavior, truncates
+```
+>>>
+Use `%p` and cast to `void *`. The format (usually hex) is implementation-defined. For arithmetic on the number, convert to `uintptr_t` from `<stdint.h>` and print with `PRIxPTR` from `<inttypes.h>`.
+Run the program twice and the addresses differ, because of address space layout randomization.
+
+### What do `*p++`, `(*p)++`, `*++p` and `++*p` each do?
+```c
+int a[] = {10, 20, 30};
+int *p = a;
+int r = *p++;    // what are r and p afterward?
+```
+>>>
+Postfix `++` binds tighter than unary `*`. Prefix `++` and `*` share a level and group right to left.
+```c
+*p++     // value is *p, then p advances.   r = 10, p now points at a[1]
+(*p)++   // value is *p, then the OBJECT increments (a[0] becomes 11); p unchanged
+*++p     // p advances first, value is the new *p
+++*p     // the object increments first; value is the new content
+```
+`*p++` powers the classic `while ((*dst++ = *src++))` string copy. When unsure, add parentheses.
+
+### What is `void *` good for, and what can't I do with it?
+>>>
+`void *` is the generic object pointer: any object pointer converts to it and back without loss. That is how `malloc`, `memcpy`, `qsort` and callbacks with a `void *ctx` argument work.
+- You cannot dereference it; it has no size or type.
+- Standard C has no arithmetic on it. GCC allows `vp + 1` as an extension that steps 1 byte, and `-Wpedantic` warns. Cast to `unsigned char *` to step bytes.
+- In C it converts to any object pointer implicitly (`int *p = malloc(...)`). C++ requires a cast.
+- Do not use it to hold function pointers; that conversion is not guaranteed.
+
+## Declarations & const
+
+### How do I read `int *a[5]`, `int (*a)[5]`, `int (*f)(int)` and `int *f(int)`?
+>>>
+Start at the name, go right until you hit `)` or the end, then go left, unwrapping parentheses as you go.
+```c
+int *a[5];        // a: array of 5 pointers to int
+int (*a)[5];      // a: pointer to an array of 5 ints
+int (*f)(int);    // f: pointer to a function taking int, returning int
+int *f(int);      // f: function taking int, returning pointer to int
+int (*(*g)(void))[3];  // g: pointer to function(void) returning pointer to array of 3 int
+```
+When it gets hairy, introduce a typedef, or paste it into `cdecl`.
+
+### What do `const int *p`, `int *const p` and `const int *const p` allow?
+>>>
+Read right to left. `const` applies to what is immediately on its left, or to the type on its right if nothing is on its left.
+```c
+const int *p;             // pointer to const int: *p = 1 illegal, p = &y legal
+int const *p;             // identical to the line above
+int *const p = &x;        // const pointer to int: *p = 1 legal, p = &y illegal
+const int *const p = &x;  // neither may change
+```
+Rule of thumb: everything left of the `*` describes the pointee; everything right of it describes the pointer itself.
+
+### Can I pass an `int *` where `const int *` is expected? And the reverse?
+>>>
+The first is fine: it is a promise not to modify, always safe. The reverse needs a cast, and if the original object was defined `const`, writing through it is undefined behavior (it may sit in read-only memory).
+Make read-only parameters `const T *`. It documents intent, catches accidental writes, and lets callers pass string literals and const arrays.
+
+### Why is `const int **` not compatible with `int **`?
+```c
+const int c = 1;
+int *p;
+const int **pp = &p;   // compilers reject or warn about this
+*pp = &c;              // would make p point at a const object...
+*p = 2;                // ...and now we modify c
+```
+>>>
+If the conversion were allowed, you could smuggle the address of a const object into a plain `int *` and modify it. Adding `const` is only safe one level deep (`int *` to `const int *`). For two levels the target must be `const int *const *`. In practice: state the const-ness you mean at every level, or avoid `**` on const data.
+
+### What is the syntax for function pointers, and how do I call one?
+```c
+int add(int a, int b) { return a + b; }
+
+int (*op)(int, int) = add;      // &add works too
+int r = op(2, 3);               // (*op)(2, 3) works too
+
+typedef int (*binop)(int, int);
+binop table[] = { add, sub, mul };
+```
+>>>
+A function name decays to a pointer to the function, like an array name does, so `add` and `&add` are the same. Calling through the pointer needs no `*`.
+It is just the address of code. The Hack analogue is putting a ROM address in A and executing `0;JMP`. You cannot do arithmetic on function pointers, and converting one to `void *` is not portable C (POSIX requires it only for `dlsym`).
+
+### In `typedef int *IntPtr;`, what does `const IntPtr p` make const?
+>>>
+The pointer, not the pointee: `const IntPtr p` means `int *const p`. A typedef is a single unit, so `const` cannot reach inside it. This is one reason to avoid hiding `*` inside typedefs. The exception is function pointer types, where the raw syntax is bad enough to justify one.
+
+## Arrays & pointer arithmetic
+
+### Why does `p + 1` advance 4 bytes, not 1, for an `int *`?
+```c
+int a[3];
+int *p = a;
+(char *)(p + 1) - (char *)p    // 4
+(char *)p + 1                  // one byte further
+```
+>>>
+Pointer arithmetic is scaled: `p + n` computes `address(p) + n * sizeof(*p)`. That is what makes `p + i` land on element `i` whatever the element size.
+This is the main departure from Hack, where every RAM cell is one 16-bit word, so `A=A+1` always means "next element". In C, memory is an array of bytes and the type sets the stride. For byte stepping, cast to `unsigned char *` first.
+
+### Are `a[i]`, `*(a + i)` and `i[a]` the same?
+>>>
+Yes. The standard defines `E1[E2]` as `*((E1) + (E2))`, and `+` is commutative, so `i[a]` is legal (a party trick; never write it). Every array index is pointer arithmetic plus a dereference, exactly like Jack's `a[i]`, which the compiler turns into `push a; push i; add; pop pointer 1; push that 0`.
+
+### Is an array a pointer?
+```c
+int a[5];
+int *p = a;
+sizeof(a)    // 20
+sizeof(p)    // 8
+```
+>>>
+No. An array is a block of consecutive elements; the name has no separate storage holding an address. In most expressions the name **decays** to a pointer to its first element, which is why they feel alike. It does not decay in these cases:
+- `sizeof a` gives the whole array's size.
+- `&a` gives a pointer to the whole array (`int (*)[5]`).
+- A string literal initializing a `char` array copies the characters.
+You also cannot assign to an array name (`a = p` is an error), while a pointer variable can be reassigned.
+
+### Why does `sizeof(arr)` give 8 inside my function?
+```c
+void f(int arr[10]) {
+    printf("%zu\n", sizeof(arr));   // 8, not 40
+}
+```
+>>>
+Array parameters are rewritten as pointer parameters: `int arr[10]`, `int arr[]` and `int *arr` are identical, and the 10 is ignored. Pass the length explicitly: `void f(const int *arr, size_t n)`. GCC and Clang warn about `sizeof` on an array parameter under `-Wall`.
+Only where the array is defined can you compute `sizeof a / sizeof a[0]`.
+
+### What is the difference between `a`, `&a` and `&a[0]`?
+```c
+int a[5];
+a + 1     // 4 bytes after a
+&a + 1    // 20 bytes after a
+```
+>>>
+Same numeric address, different types:
+- `a` decays to `int *`, pointing at the first element.
+- `&a[0]` is also `int *`.
+- `&a` is `int (*)[5]`, a pointer to the whole array, so `&a + 1` jumps past the entire array.
+`&a + 1` is the idiom for "one past the end of the whole array".
+
+### Is it legal to point one past the end of an array? One before the start?
+```c
+int a[4];
+int *end = a + 4;       // legal
+for (int *p = a; p != end; p++) { /* ... */ }
+int *bad = a - 1;       // undefined behavior, even if never dereferenced
+```
+>>>
+One past the end may be formed and compared, but not dereferenced; that is what makes half-open `[begin, end)` loops work. One before the start is not guaranteed to work, so a reverse loop that decrements a pointer below `a` is technically undefined. Use an index, or `for (p = end; p != a; ) { --p; /* ... */ }`.
+
+### What does subtracting two pointers return?
+```c
+ptrdiff_t n = q - p;
+printf("%td\n", n);
+```
+>>>
+The number of **elements** between them (not bytes), as a signed `ptrdiff_t`. Both pointers must point into the same array, or one past its end; otherwise it is undefined. The result is positive when `q` is later in the array. Adding two pointers is illegal.
+
+### Can I compare any two pointers with `<`?
+>>>
+`==` and `!=` work on any two pointers of compatible type. Ordering (`<`, `>`, `<=`, `>=`) is only defined when both point into the same array or object (or one past its end). Comparing unrelated objects is undefined in the standard, even though it "works" on flat-memory machines. To order unrelated addresses on purpose, convert to `uintptr_t` first.
+Also, a pointer one past the end of one array may compare equal to the start of a different array, so addresses alone do not tell you which array a pointer belongs to.
+
+### Why can't I pass `int m[3][4]` to a function taking `int **`?
+```c
+void show(int **m);                          // wrong shape
+void show(int (*m)[4], int rows);            // right: pointer to a row of 4 ints
+void show2(int rows, int cols, int m[rows][cols]);   // C99 variable-length parameter
+```
+>>>
+`int m[3][4]` is 12 ints in a row, and it decays to `int (*)[4]`. An `int **` expects an array of row pointers, a different layout. The function would read integer data as if it were addresses and crash. The compiler warns about incompatible pointer types, so heed it.
+Fixes: a pointer to a row (`int (*m)[4]`), VLA parameters, a flat array indexed `m[r * cols + c]`, or genuinely building an array of row pointers.
+
+### How do I allocate a 2D array dynamically?
+>>>
+```c
+// 1) One contiguous block, indexable as m[r][c]  (needs VLA support)
+int (*m)[cols] = malloc(rows * sizeof *m);
+m[2][3] = 7;
+free(m);
+
+// 2) Array of row pointers (rows may differ in length)
+int **g = malloc(rows * sizeof *g);
+for (size_t r = 0; r < rows; r++) g[r] = calloc(cols, sizeof **g);
+/* use g[r][c] */
+for (size_t r = 0; r < rows; r++) free(g[r]);
+free(g);
+
+// 3) Flat block
+int *f = malloc(rows * cols * sizeof *f);   // f[r * cols + c]
+```
+Option 1 is one allocation, one `free` and cache-friendly, but variably modified types are optional since C11. Option 2 costs rows + 1 allocations, each of which needs a check. Option 3 works everywhere. Whichever you pick, guard `rows * cols * sizeof` against overflow when the sizes come from input.
+
+### Can I use negative indices?
+```c
+int a[5] = {0, 1, 2, 3, 4};
+int *p = a + 3;
+p[-1]    // a[2]
+p[-3]    // a[0]
+p[-4]    // before the array: undefined
+```
+>>>
+Yes. `p[i]` is `*(p + i)` and `i` is a signed offset. It is legal as long as the resulting pointer is inside the same array object. Negative indexing is how you walk backwards from a pointer into the middle of a buffer, as parsers and ring buffers do.
+
+### Why is `for (size_t i = n - 1; i >= 0; i--)` an infinite loop?
+>>>
+`size_t` is unsigned, so `i >= 0` is always true. At zero, `i--` wraps to a giant value and you index far out of bounds. Idiom for counting down with an unsigned index:
+```c
+for (size_t i = n; i-- > 0; ) { use(a[i]); }
+```
+It also handles `n == 0`, where `n - 1` would wrap before the loop even starts.
+
+### How do I look at the raw bytes of an object?
+```c
+const unsigned char *b = (const unsigned char *)&x;
+for (size_t i = 0; i < sizeof x; i++) printf("%02x ", b[i]);
+```
+>>>
+Cast to `unsigned char *`. Character types are the only ones allowed to alias any object, and `unsigned char` avoids sign-extension surprises. This is how you see endianness (see the undefined-behavior section).
+
+## Strings
+
+### What is the difference between `char *s = "hi";` and `char s[] = "hi";`?
+```c
+char *a = "hi";
+char b[] = "hi";
+a[0] = 'H';    // ?
+b[0] = 'H';    // ?
+```
+>>>
+- `char *a = "hi"` points at a string literal in read-only memory. Writing through it is undefined and usually a segfault. Declare it `const char *a`.
+- `char b[] = "hi"` creates a 3-byte **array** (`'h'`, `'i'`, `'\0'`) on the stack, initialized by copying the literal. Writing is fine.
+`sizeof b` is 3 and `sizeof a` is 8. You can reassign `a` (`a = "bye"`) but not `b`.
+
+### Why is `strlen("hi")` 2 but `sizeof("hi")` 3?
+>>>
+Every C string ends with a NUL byte, `'\0'`. `strlen` counts the characters before it; `sizeof` of the literal array counts the NUL too. When you allocate room for a copy you need `strlen(s) + 1`:
+```c
+char *copy = malloc(strlen(s) + 1);
+if (copy) strcpy(copy, s);
+```
+Forgetting the `+ 1` writes one byte past the block, which corrupts the allocator's bookkeeping and shows up later, somewhere else. Also note that `sizeof` of a `char *` is 8, which is not the string length.
+
+### Why does `if (name == "yes")` not work?
+>>>
+`==` on two `char *` compares **addresses**, not text. It may be true by accident (the compiler can merge identical literals) and is false for strings from `scanf` or `malloc`. Use `strcmp(a, b) == 0`.
+`strcmp` returns negative, zero or positive. Never assume it returns exactly -1 or 1.
+
+### How can `strcpy`, `strncpy` and `strcat` go wrong?
+```c
+char buf[8];
+strcpy(buf, "overflow!");        // 10 bytes into 8: overflow
+strncpy(buf, "overflow!", 8);    // fills 8 bytes, NO terminating '\0'
+snprintf(buf, sizeof buf, "%s", "overflow!");   // truncates and terminates
+```
+>>>
+`strcpy` and `strcat` never check the destination size. `strncpy` truncates but **does not terminate** when the source is as long as the limit, so you must set the last byte yourself. `snprintf` always terminates (if the size is above 0) and returns the length it wanted, so you can detect truncation. Where available, `strlcpy` does the same job.
+
+### Why can't I return a local `char` array from a function?
+```c
+char *name(void) {
+    char buf[32] = "alice";
+    return buf;      // dangling pointer
+}
+```
+>>>
+`buf` lives in `name`'s stack frame, which is gone after the return. Options:
+- Let the caller pass the buffer: `void name(char *out, size_t n)`.
+- `malloc` it and document that the caller frees.
+- Return a string literal as `const char *`.
+- Use a `static` buffer. It works, but every call overwrites it and it is not thread-safe.
+
+### Why do I need `(unsigned char)` in `isalpha((unsigned char)*s)`?
+>>>
+The `<ctype.h>` functions take an `int` that must be representable as `unsigned char`, or be `EOF`. Plain `char` may be signed, so a byte like `0xE9` becomes a negative `int`, which is undefined for `isalpha`. Cast first.
+
+### What are `argc` and `argv`, in pointer terms?
+```c
+int main(int argc, char **argv) {
+    for (char **p = argv; *p != NULL; p++) puts(*p);
+}
+```
+>>>
+`argv` points to the first element of an array of `char *`, each pointing to a NUL-terminated argument. `argv[argc]` is guaranteed to be NULL, so you can loop until NULL. In a parameter, `char *argv[]` and `char **argv` are the same thing.
+
+## Stack, heap & lifetime
+
+### Where do variables live: stack, heap, static, read-only?
+>>>
+- **Stack**: locals and parameters. Created on call, gone on return. Fast, limited to a few MB.
+- **Heap**: `malloc`/`calloc`/`realloc` blocks. Live until you `free` them. Jack's `Memory.alloc` heap is the same idea at RAM[2048..16383].
+- **Static/data**: globals and `static` locals. Live for the whole program; zero-initialized if you do not set them.
+- **Read-only**: string literals and const globals, usually.
+A pointer's own storage and its pointee's storage are separate. The bug is always that the pointee's lifetime ended while the pointer lived on.
+
+### Why is returning `&local` a bug if it sometimes "works"?
+```c
+int *bad(void) { int x = 42; return &x; }
+
+int main(void) {
+    int *p = bad();
+    printf("%d\n", *p);    // might print 42, might not
+}
+```
+>>>
+After `bad` returns, its stack frame is free space. The old 42 may still be there, so a quick read can succeed, until the next call reuses the memory. That is what makes it a heisenbug. GCC and Clang catch the simple form with a warning, but not once the address is hidden inside a struct or stored in a global. The Swap scene above shows the frame's cells going grey after the return.
+
+### Do I have to check the result of `malloc`?
+>>>
+Yes. It returns NULL on failure, and dereferencing NULL is undefined. On Linux with overcommit you may rarely see NULL for small requests (the OOM killer acts later), but huge sizes still fail and other platforms differ.
+```c
+int *p = malloc(n * sizeof *p);
+if (!p) { /* clean up and report the error */ }
+```
+Also watch for `n * sizeof *p` overflowing when `n` comes from input. `calloc(n, sizeof *p)` checks for you.
+
+### What is the `sizeof *p` idiom, and why use it?
+```c
+struct node *p = malloc(sizeof *p);                // right
+struct node *q = malloc(sizeof(q));                // WRONG: 8 bytes, the size of the pointer
+struct node *r = malloc(sizeof(struct node *));    // WRONG for the same reason
+```
+>>>
+`sizeof *p` is the size of whatever `p` points to, so it stays correct if the type changes. `sizeof(p)` is the size of the pointer itself, 8. This is one of the most common heap overflows: the allocation succeeds, and the damage only shows when you write past the ninth byte. `sizeof *p` does not evaluate `*p`, so it is safe even before `p` is assigned.
+
+### Should I cast the result of `malloc`?
+>>>
+Not in C. `void *` converts implicitly, and a cast can hide a missing `#include <stdlib.h>` on older compilers (the implicit `int` return truncates a 64-bit pointer). C++ requires the cast, which is why code meant for both languages has them.
+
+### What does `free(p)` do to `p`?
+```c
+free(p);
+*p = 1;      // use after free: undefined
+free(p);     // double free: undefined
+p = NULL;    // good habit
+free(p);     // now harmless: free(NULL) does nothing
+```
+>>>
+`free` returns the block to the allocator. It does **not** change `p`, which keeps the old address and now dangles. Setting `p = NULL` makes later misuse crash predictably and makes an accidental second `free` harmless. It only clears that one copy, though: other pointers to the same block (see the Heap scene) still dangle. The real fix is clear ownership, with one owner who frees.
+
+### What can go wrong with `free` besides use after free?
+>>>
+All of these are undefined behavior, and glibc usually aborts with a message such as `free(): invalid pointer` or `double free or corruption`:
+- freeing the same block twice
+- freeing a pointer that did not come from `malloc` (a stack variable, a global, a string literal)
+- freeing an interior pointer such as `free(p + 1)`
+- writing outside a block, which corrupts the metadata stored next to it; the crash then appears at a later, unrelated `free` or `malloc`
+
+### How do memory leaks happen?
+```c
+p = malloc(100);
+p = malloc(200);                 // the first block is now unreachable
+
+q = realloc(q, 400);             // on failure q becomes NULL and the old block leaks
+
+void *tmp = realloc(q, 400);     // safe pattern
+if (!tmp) { /* q is still valid; handle the error */ } else q = tmp;
+```
+>>>
+A leak is a heap block with no pointer left to it. Typical causes: overwriting the only pointer, returning early on an error path before `free`, and the `p = realloc(p, n)` mistake above. Find them with `valgrind --leak-check=full` or AddressSanitizer's leak detector.
+
+### What happens to my other pointers when `realloc` moves the block?
+```c
+int *a = malloc(4 * sizeof *a);
+int *third = &a[2];
+a = realloc(a, 4000 * sizeof *a);   // may move the block
+*third = 5;                         // dangling if it moved
+```
+>>>
+`realloc` may return a different address and frees the old block. Every pointer into the old block, including interior ones like `third`, iterators, or a stored `end`, is now dangling. When a buffer can grow, keep **indices** instead of pointers, or recompute pointers after every possible reallocation.
+
+### `malloc` vs `calloc`: what is actually in the memory?
+>>>
+`malloc` gives uninitialized bytes. Reading them before writing is undefined for most types, and can leak old secrets. `calloc(n, size)` zeroes the block and checks `n * size` for overflow. Zeroed memory is `0` for integers and `0.0` for IEEE doubles. For pointers, all-bits-zero is a null pointer on every mainstream platform, though the standard does not promise it.
+`malloc(0)` may return NULL or a unique pointer; either way you may pass it to `free`, but never dereference it.
+
+### Can a pointer outlive its block scope?
+```c
+int *p;
+{
+    int tmp = 7;
+    p = &tmp;
+}
+*p;    // tmp's lifetime ended at the closing brace
+```
+>>>
+The lifetime ends at the closing brace, even though the stack space physically remains. The same goes for compound literals like `(int[]){1, 2, 3}` (they live until the enclosing block ends) and VLAs. The compiler may reuse the slot for another variable immediately, so you can read impossible values.
+
+## Pointers & functions
+
+### Why doesn't `void f(int *p) { p = malloc(4); }` change the caller's pointer?
+```c
+void f(int *p)   { p = malloc(sizeof *p); }      // changes the copy only (and leaks)
+void g(int **pp) { *pp = malloc(sizeof **pp); }  // changes the caller's pointer
+
+int *q = NULL;
+f(q);     // q is still NULL
+g(&q);    // q is now valid
+```
+>>>
+C passes everything by value. `p` is a copy of the address, so assigning to it changes only the copy. Writing through it (`*p = 5`) changes the caller's pointee. To change the caller's *pointer*, pass its address (`int **`) or return the new pointer.
+General rule: to modify a variable of type T in a callee, pass `T *`. If T is already a pointer, that is `T **`.
+
+### Why does a linked-list `push` often take `Node **head`?
+>>>
+```c
+void push(Node **head, int v) {
+    Node *n = malloc(sizeof *n);
+    if (!n) return;
+    n->val = v;
+    n->next = *head;
+    *head = n;            // updates the caller's head
+}
+
+// Remove a value without special-casing the head:
+void remove_val(Node **pp, int v) {
+    while (*pp) {
+        if ((*pp)->val == v) {
+            Node *dead = *pp;
+            *pp = dead->next;      // unlink
+            free(dead);
+            return;
+        }
+        pp = &(*pp)->next;
+    }
+}
+```
+Inserting at the front changes `head` itself, so the function needs its address. `Node **pp` points at "the pointer that points at the current node": either the head variable or some node's `next` field. Unlinking the first node and a middle node is then the same line of code. The alternative is `Node *push(Node *head, int v)` returning the new head, used as `head = push(head, 3);`.
+
+### What can a function safely return as a pointer?
+>>>
+Safe: a pointer that was passed in, a pointer into heap memory it allocated (caller frees), the address of a `static` or global, or a string literal. Unsafe: the address of any local variable or parameter.
+Whenever you return a pointer, write down who owns it and how long it stays valid. That one comment prevents most leaks and double frees.
+
+### What does `restrict` mean, and why do `memcpy` and `memmove` differ?
+```c
+void *memcpy(void *restrict dst, const void *restrict src, size_t n);
+void *memmove(void *dst, const void *src, size_t n);
+```
+>>>
+`restrict` is a promise to the compiler that, during this function, the object accessed through this pointer is not accessed through any other pointer. It lets the optimizer keep values in registers and vectorize. Breaking the promise is undefined.
+`memcpy` has restrict parameters, so overlapping ranges are undefined; `memmove` handles overlap. Shifting elements inside one array, as in `memmove(a + 1, a, n * sizeof *a)`, must use `memmove`.
+
+### How do callbacks and function-pointer tables work, e.g. `qsort`?
+```c
+int cmp_int(const void *pa, const void *pb) {
+    int a = *(const int *)pa;
+    int b = *(const int *)pb;
+    return (a > b) - (a < b);       // not a - b
+}
+qsort(arr, n, sizeof arr[0], cmp_int);
+```
+>>>
+`qsort` does not know the element type, so it passes `void *` elements to a comparator that casts them back. Never return `a - b`: it overflows for large values (`INT_MIN` against 1) and sorts wrongly. For callbacks that need state, the convention is an extra `void *ctx` argument passed back to the callback; C uses it where other languages use closures.
+
+### Should I pass a struct by value or by pointer?
+```c
+struct buf { char data[4096]; int len; };
+void by_value(struct buf b);         // copies about 4100 bytes
+void by_ptr(const struct buf *b);    // copies 8 bytes
+```
+>>>
+By value copies the whole struct, arrays inside included. A pointer copies only the address and lets the callee see (or change) the original; use `const struct buf *` for read-only access. Struct *assignment* copies embedded arrays too, which is the one way to copy an array with `=`.
+
+## Structs & data structures
+
+### What is the difference between `.` and `->`, and where does precedence bite?
+```c
+struct pt { int x, y; };
+struct pt a = {1, 2};
+struct pt *p = &a;
+p->x       // same as (*p).x
+*p.x       // means *(p.x): an error, because p is a pointer
+```
+>>>
+`->` is dereference then member access. Because `.` binds tighter than `*`, `*p.x` is not `(*p).x`. A struct value uses `.`; a struct pointer uses `->`. Chains work: `list->head->next->val` follows three pointers and crashes if any link is NULL.
+
+### Why is `sizeof(struct)` bigger than the sum of its fields?
+```c
+struct s { char c; int i; char d; };   // typically 12 bytes
+struct t { int i; char c; char d; };   // typically 8 bytes
+```
+>>>
+Each member is aligned to its natural boundary (an `int` at a multiple of 4), and the whole struct is padded to a multiple of its strictest member. Ordering members largest-first wastes less.
+Consequences: never compare structs with `memcmp` (padding bytes are indeterminate), do not write a struct to disk or network by dumping its bytes, and use `offsetof(struct s, i)` instead of guessing offsets.
+
+### How can a struct refer to itself (linked list, tree)?
+```c
+struct node {
+    int val;
+    struct node *next;       // a pointer: fine
+    // struct node child;    // by value: impossible, infinite size
+};
+typedef struct node Node;
+```
+>>>
+A struct cannot contain itself by value, but it can contain a pointer to its own type, since a pointer has a fixed size even when the pointee is incomplete. Inside the definition you must write `struct node`, because the typedef is not visible yet.
+**Opaque pointers**: a header can declare `typedef struct stack stack;` and expose only `stack *`, keeping the layout private in the `.c` file. That is C's form of encapsulation.
+
+### Why does `while (p->val != k && p)` crash but `while (p && p->val != k)` doesn't?
+>>>
+`&&` evaluates left to right and stops at the first false operand. In the first form `p->val` is read before `p` is checked, so it dereferences NULL at the end of the list. Always test the pointer first. The same rule applies to `p != NULL && p->next != NULL && p->next->val == k`.
+
+### Why does copying a struct that contains a pointer cause a double free?
+```c
+struct str { char *data; size_t len; };
+struct str a = { strdup("hi"), 2 };
+struct str b = a;       // copies the pointer, not the text
+free(a.data);
+free(b.data);           // double free
+```
+>>>
+Struct assignment is a shallow copy: the pointer member is copied, so both structs point at the same block. Whoever frees first leaves the other dangling. Either write an explicit `str_copy` that allocates a new block, or define ownership so only one struct frees the data.
+
+### What is a flexible array member?
+```c
+struct msg { size_t len; char data[]; };
+struct msg *m = malloc(sizeof *m + n);    // header plus n bytes
+m->len = n;
+```
+>>>
+A C99 feature: the last member may be an array with no size. `sizeof(struct msg)` does not include it. You allocate header and payload in one block, so one `free` releases both. A struct with such a member cannot be an array element or a member of another struct.
+
+## Undefined behavior & subtle traps
+
+### What does "undefined behavior" really mean for pointers?
+```c
+int get(int *p) {
+    int v = *p;
+    if (p == NULL) return -1;    // the compiler may delete this check
+    return v;
+}
+```
+>>>
+The standard places no requirement on what happens. Optimizers assume undefined behavior never occurs and rewrite code accordingly. Above, since `*p` already ran, the compiler concludes `p` is not NULL and may remove the test.
+So "it crashed" is not guaranteed and "it worked on my machine" proves nothing. During development, compile with `-fsanitize=address,undefined`.
+
+### What is strict aliasing? Can I read a `float` through an `int *`?
+```c
+float f = 1.0f;
+int bits = *(int *)&f;                        // undefined: violates strict aliasing
+
+int bits2;
+memcpy(&bits2, &f, sizeof bits2);             // correct
+```
+>>>
+The compiler assumes pointers of unrelated types never refer to the same object, and optimizes on that basis. Accessing an object through an incompatible type is undefined, so the obvious type pun can break at `-O2`. Legal alternatives: `memcpy` (compilers optimize it away), a `union` (allowed in C, not in C++), or reading through `char`/`unsigned char *`, which may alias anything.
+
+### What does casting `int *` to `unsigned char *` reveal about endianness?
+```c
+uint32_t x = 0x01020304;
+unsigned char *b = (unsigned char *)&x;
+// little-endian (x86, most ARM): b[0..3] = 04 03 02 01
+// big-endian:                    b[0..3] = 01 02 03 04
+```
+>>>
+A multi-byte value occupies consecutive addresses, and the machine decides which byte comes first. Hack never showed you this because every cell is a single 16-bit word. In C you see it whenever you look at the same memory through different types, parse binary files, or send data over a network (use `htonl` or explicit shifts instead of pointer casts).
+
+### Is it OK to cast a `char *` buffer to `int *` and read through it?
+```c
+char buf[8];
+int *p = (int *)(buf + 1);    // misaligned for int
+int v = *p;                   // undefined; traps on some CPUs
+```
+>>>
+Not unless the address is suitably aligned for `int` and the buffer's effective type really is `int`. x86 tolerates many misaligned reads, but ARM, SPARC and others may trap or run slowly, and compilers may assume alignment and emit instructions that fail. Read unaligned data with `memcpy(&v, buf + 1, sizeof v)`.
+
+### How do I convert between pointers and integers?
+```c
+#include <stdint.h>
+uintptr_t n = (uintptr_t)p;
+void *q = (void *)n;      // round trip is guaranteed for void *
+int bad = (int)p;         // truncates on 64-bit
+```
+>>>
+Use `uintptr_t` or `intptr_t`, which are wide enough. The mapping is implementation-defined, so use it for hashing addresses, alignment checks (`n % 16 == 0`) or tagging, not for assuming addresses are meaningful numbers. Compilers also track pointer **provenance**: a pointer derived from one object may not be used to reach a different object, even if the numeric addresses happen to be adjacent.
+
+### Hack has SCREEN at 16384 and KBD at 24576. How would I do that in C?
+```c
+#include <stdint.h>
+#define SCREEN ((volatile uint16_t *)0x4000)    // 16384
+#define KBD    ((volatile uint16_t *)0x6000)    // 24576
+
+while (*KBD == 0) { }       // wait for a key
+SCREEN[0] = 0xFFFF;         // blacken the first 16 pixels
+```
+>>>
+On bare metal or embedded targets, casting a fixed integer to a pointer is exactly memory-mapped I/O, the closest thing to what you did in nand2tetris. The conversion is implementation-defined and only meaningful where that address truly maps a device. In a normal Linux or Windows process the same code just segfaults.
+`volatile` is required. It tells the compiler each read and write has an observable effect, so it cannot cache `*KBD` in a register or drop "redundant" repeated stores. It is not a thread-synchronization tool; use atomics for that.
+
+### What happens if I read or write past the end of an array?
+```c
+int a[5];
+a[5] = 1;     // one past the end: undefined
+a[-1] = 2;    // before the start: undefined
+```
+>>>
+C does no bounds checking. The write lands on whatever sits next to the array: another local, a saved return address, the allocator's bookkeeping. Symptoms range from nothing, to a corrupted variable, to a crash far from the bug, to exploitable security holes (stack smashing).
+Hack gave you RAM[0..32767] and no protection at all. A modern OS only protects at page granularity, so small overflows go unnoticed. AddressSanitizer catches most of them.
+
+### Two threads share one pointer. What can go wrong?
+>>>
+Data races on the pointee, or on the pointer itself, are undefined, and one thread can `free` a block while another is still using it. Keep one clear owner per block, protect shared mutable data with a mutex or atomics, and make sure shared read-only data outlives every thread that uses it. A pointer to one thread's local variable, passed to another thread, dangles once the first thread's function returns.
+
+## Debugging & tools
+
+### What does a segmentation fault actually mean?
+>>>
+The CPU's memory-management unit rejected an access: the address is not mapped, or you wrote to read-only memory, or executed non-executable memory. The OS delivers `SIGSEGV`. It is a protection mechanism, not a diagnosis. Many pointer bugs (overflow into neighbouring valid memory, use after free, stale stack reads) never segfault and just corrupt data. Hack has no such mechanism: any in-range address is yours to trash.
+
+### Which compiler flags and tools should I always use?
+```sh
+gcc -std=c17 -g -O0 -Wall -Wextra -Wpedantic \
+    -fsanitize=address,undefined main.c -o main
+valgrind --leak-check=full ./main      # on a build without sanitizers
+gdb ./main                             # then: run, bt
+```
+>>>
+- `-Wall -Wextra` warns about returning local addresses, incompatible pointer types, `sizeof` on array parameters and more.
+- `-fsanitize=address` finds out-of-bounds accesses, use after free, double free and leaks, and reports where the block was allocated and freed.
+- `-fsanitize=undefined` catches misaligned access, null dereference and signed overflow.
+- Use AddressSanitizer or valgrind for a given run, not both together.
+
+### Which gdb commands help with pointers?
+```sh
+p p              # the pointer value
+p *p             # what it points at
+p *p@5           # five elements starting at p
+p p->next->val
+x/8xb p          # 8 bytes in hex at p
+x/4dw p          # 4 words in decimal
+watch *p         # stop when the pointee changes
+bt               # backtrace after a crash
+```
+>>>
+`x/` is the equivalent of the RAM window in the nand2tetris emulator: choose a count, a format (`x` hex, `d` decimal, `s` string) and a unit (`b` byte, `h` halfword, `w` word, `g` 8 bytes). `watch` is the tool for "who overwrote this?" bugs. Compile with `-g -O0` so variables are not optimized away.
+</script>
+
+<script>
+(function(){
+"use strict";
+var $=function(id){return document.getElementById(id)};
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+function hex(n,w){var s=(n<0?n+65536:n).toString(16).toUpperCase();while(s.length<(w||4))s="0"+s;return "0x"+s}
+
+/* ---------- highlighting ---------- */
+var KW="if|else|for|while|do|return|struct|typedef|const|volatile|restrict|static|sizeof|void|int|char|short|long|float|double|unsigned|signed|size_t|ptrdiff_t|uintptr_t|uint16_t|uint32_t|uint8_t|NULL|enum|union|break|continue|switch|case";
+var RE_C=new RegExp("(\\/\\/[^\\n]*|\\/\\*.*?\\*\\/)|(#[^\\n]*)|(\"(?:\\\\.|[^\"\\\\])*\"|'(?:\\\\.|[^'\\\\])+')|\\b("+KW+")\\b|\\b(0x[0-9a-fA-F]+|\\d+(?:\\.\\d+)?f?)\\b","g");
+var RE_SH=/(#[^\n]*)/g;
+function hl(text,lang){
+  var out="",last=0,m;
+  if(lang==="sh"){
+    RE_SH.lastIndex=0;
+    while((m=RE_SH.exec(text))){out+=esc(text.slice(last,m.index))+'<span class="c">'+esc(m[0])+'</span>';last=m.index+m[0].length}
+    return out+esc(text.slice(last));
+  }
+  RE_C.lastIndex=0;
+  while((m=RE_C.exec(text))){
+    out+=esc(text.slice(last,m.index));
+    var cls=m[1]?"c":m[2]?"pp":m[3]?"s":m[4]?"k":"n";
+    out+='<span class="'+cls+'">'+esc(m[0])+'</span>';
+    last=m.index+m[0].length;
+  }
+  return out+esc(text.slice(last));
+}
+function hlAsm(text){
+  return esc(text).replace(/(\/\/.*)$/gm,'<span class="cm">$1</span>').replace(/(^|\n)(@\w+)/g,'$1<span class="at">$2</span>');
+}
+function inline(s){
+  return String(s).split("`").map(function(seg,i){
+    if(i%2) return "<code>"+esc(seg)+"</code>";
+    return esc(seg).replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");
+  }).join("");
+}
+
+/* ---------- visualizer ---------- */
+var SCENES=[
+{ name:"Pointer basics",
+  code:["int x = 42;","int *p = &x;","*p = 7;","int y = *p;","p = &y;"],
+  rows:[
+    {id:"x",a:0x1000,n:"x",t:"int",size:4,grp:"main() stack frame"},
+    {id:"y",a:0x1004,n:"y",t:"int",size:4},
+    {id:"p",a:0x1008,n:"p",t:"int *",size:8,ptr:true}
+  ],
+  steps:[
+    {line:-1,say:"Memory is a row of numbered boxes. The three variables below do not exist yet, but the compiler has reserved their addresses. Press **Next step** to run the first line."},
+    {line:0,ops:[{id:"x",vis:1,v:"42"}],say:"`int x = 42;` writes 42 into a 4-byte box at 0x1000. Nothing pointer-like yet.",
+     hack:["@42","D=A","@x      // x is a symbol; the assembler picks a RAM cell for it","M=D"]},
+    {line:1,ops:[{id:"p",vis:1,to:"x"}],say:"`&x` is the box's address, 0x1000. `p` is its own 8-byte box and stores that number. The arrow is only a drawing of \"this number is that box's address\".",
+     hack:["@x","D=A      // D = the ADDRESS of x  (&x)","@p","M=D      // RAM[p] = that address"]},
+    {line:2,ops:[{id:"x",v:"7"}],say:"`*p = 7` means: go to the address stored in p and write there. x changes even though its name never appears on this line.",
+     hack:["@7","D=A","@p","A=M      // A = the value stored in p, an address","M=D      // RAM[A] = 7   (*p = 7)"]},
+    {line:3,ops:[{id:"y",vis:1,v:"7"}],say:"`*p` on the right-hand side reads the 4 bytes at p's address. y receives a copy, so later changes to x will not touch y.",
+     hack:["@p","A=M","D=M      // D = *p","@y","M=D"]},
+    {line:4,ops:[{id:"p",to:"y"}],say:"Assigning to `p` with no star changes which box it points at. x keeps its value.",
+     hack:["@y","D=A      // &y","@p","M=D      // p now holds a different address"]}
+  ]},
+{ name:"Pointer to pointer",
+  code:["int x = 5;","int *p = &x;","int **pp = &p;","**pp = 9;","*pp = NULL;"],
+  rows:[
+    {id:"x",a:0x1000,n:"x",t:"int",size:4,grp:"main() stack frame"},
+    {id:"p",a:0x1008,n:"p",t:"int *",size:8,ptr:true},
+    {id:"pp",a:0x1010,n:"pp",t:"int **",size:8,ptr:true}
+  ],
+  steps:[
+    {line:-1,say:"A pointer is a variable, so it has an address too, and something can point at it. Press **Next step**."},
+    {line:0,ops:[{id:"x",vis:1,v:"5"}],say:"x holds 5."},
+    {line:1,ops:[{id:"p",vis:1,to:"x"}],say:"p holds x's address."},
+    {line:2,ops:[{id:"pp",vis:1,to:"p"}],say:"pp holds **p's** address. Its type is `int **`: a pointer to a pointer to an int.",
+     hack:["@p","D=A      // &p","@pp","M=D"]},
+    {line:3,ops:[{id:"x",v:"9"}],say:"`**pp` follows two arrows: pp to p, then p to x. Each `*` is one hop. x becomes 9.",
+     hack:["@9","D=A","@pp","A=M      // A = &p","A=M      // A = p = &x","M=D       // **pp = 9"]},
+    {line:4,ops:[{id:"p",to:null}],say:"`*pp` follows one arrow and lands on p itself, so this sets **p** to NULL. x is still 9, but now `*p` would crash, and so would `**pp`: its second hop has nowhere to go.",
+     hack:["@pp","A=M      // A = &p","M=0      // *pp = NULL"]}
+  ]},
+{ name:"Arrays and p + 2",
+  code:["int a[4] = {10, 20, 30, 40};","int *p = a;","p = p + 2;","*p = 99;","ptrdiff_t n = p - a;"],
+  rows:[
+    {id:"a0",a:0x1000,n:"a[0]",t:"int",size:4,grp:"main() stack frame"},
+    {id:"a1",a:0x1004,n:"a[1]",t:"int",size:4},
+    {id:"a2",a:0x1008,n:"a[2]",t:"int",size:4},
+    {id:"a3",a:0x100C,n:"a[3]",t:"int",size:4},
+    {id:"p",a:0x1010,n:"p",t:"int *",size:8,ptr:true},
+    {id:"n",a:0x1018,n:"n",t:"ptrdiff_t",size:8}
+  ],
+  steps:[
+    {line:-1,say:"An array is consecutive boxes. Notice each address is 4 bytes after the last, because each element is an `int`. Press **Next step**."},
+    {line:0,ops:[{id:"a0",vis:1,v:"10"},{id:"a1",vis:1,v:"20"},{id:"a2",vis:1,v:"30"},{id:"a3",vis:1,v:"40"}],
+     say:"Four `int`s side by side: 0x1000, 0x1004, 0x1008, 0x100C.",
+     hack:["// a[0..3] = four consecutive RAM cells","// Hack's cell is 1 word, so the stride is +1.","// C's int is 4 bytes, so the stride is +4."]},
+    {line:1,ops:[{id:"p",vis:1,to:"a0"}],say:"An array name used as a value becomes the address of its first element, so `p = a` means `p = &a[0]`.",
+     hack:["@a","D=A      // base address of the array","@p","M=D"]},
+    {line:2,ops:[{id:"p",to:"a2"}],say:"`p + 2` adds 2 x `sizeof(int)` = 8 bytes: 0x1000 + 8 = 0x1008, which is a[2]. The compiler scales by the pointee type. In Hack the same line would add 2 cells.",
+     hack:["@p","D=M","@2       // Hack: +2 cells.  C: +2*sizeof(int) bytes","D=D+A","@p","M=D"]},
+    {line:3,ops:[{id:"a2",v:"99"}],say:"`*p = 99` writes through the pointer, so a[2] changes. `p[0]`, `*p` and `a[2]` are the same box.",
+     hack:["@99","D=A","@p","A=M","M=D"]},
+    {line:4,ops:[{id:"n",vis:1,v:"2"}],say:"`p - a` counts **elements**, not bytes: (0x1008 - 0x1000) / 4 = 2. The type is `ptrdiff_t`.",
+     hack:["@p","D=M","@a","D=D-A    // Hack: already a count of cells","@n","M=D       // C also divides by sizeof(int)"]}
+  ]},
+{ name:"Swap with pointers",
+  code:["void swap(int *p, int *q) {","    int t = *p;","    *p = *q;","    *q = t;","}","int main(void) {","    int a = 1, b = 2;","    swap(&a, &b);","}"],
+  rows:[
+    {id:"t",a:0x1EF8,n:"t",t:"int",size:4,grp:"swap() frame (lower addresses)"},
+    {id:"p",a:0x1F00,n:"p",t:"int *",size:8,ptr:true},
+    {id:"q",a:0x1F08,n:"q",t:"int *",size:8,ptr:true},
+    {id:"a",a:0x2000,n:"a",t:"int",size:4,grp:"main() frame"},
+    {id:"b",a:0x2004,n:"b",t:"int",size:4}
+  ],
+  steps:[
+    {line:-1,say:"C passes arguments by value. A function can only change the caller's data if it is handed the **addresses**. Press **Next step**."},
+    {line:6,ops:[{id:"a",vis:1,v:"1"},{id:"b",vis:1,v:"2"}],say:"main creates a and b."},
+    {line:7,ops:[{id:"p",vis:1,to:"a"},{id:"q",vis:1,to:"b"}],say:"The call makes a new frame with its own variables `p` and `q`. They are copies of the two addresses. The pointers are copies; the boxes they point at are shared.",
+     hack:["// the VM pushes &a and &b as arguments","// callee: ARG points at them"]},
+    {line:1,ops:[{id:"t",vis:1,v:"1"}],say:"`int t = *p` reads a through p and stores a copy in t.",
+     hack:["push argument 0   // p","pop pointer 1     // THAT = p","push that 0       // *p","pop local 0       // t = *p"]},
+    {line:2,ops:[{id:"a",v:"2"}],say:"`*p = *q` copies b's value into a, through the two pointers.",
+     hack:["push argument 1   // q","pop pointer 1     // THAT = q","push that 0       // *q","push argument 0   // p","pop pointer 1     // THAT = p","pop that 0        // *p = *q"]},
+    {line:3,ops:[{id:"b",v:"1"}],say:"`*q = t` writes the saved value into b. The swap worked on main's variables.",
+     hack:["push argument 1","pop pointer 1","push local 0","pop that 0        // *q = t"]},
+    {line:4,ops:[{id:"t",state:"dead",note:"popped"},{id:"p",state:"dead",note:"popped"},{id:"q",state:"dead",note:"popped"}],
+     say:"The function returns and its frame is popped. The old numbers may linger in those cells, but nothing owns them any more. A pointer to `t`, `p` or `q` would now dangle. Returning `&t` from `swap` is exactly that bug.",
+     hack:["// return: LCL, ARG, THIS, THAT and SP are restored.","// the cells are not cleared, just no longer yours."]}
+  ]},
+{ name:"Heap: malloc, free, dangling",
+  code:["int *p = malloc(sizeof *p);","*p = 5;","int *q = p;","free(p);","*q = 8;      // use after free","p = NULL;"],
+  rows:[
+    {id:"p",a:0x1000,n:"p",t:"int *",size:8,ptr:true,grp:"stack (main)"},
+    {id:"q",a:0x1008,n:"q",t:"int *",size:8,ptr:true},
+    {id:"blk",a:0x5000,n:"heap block",t:"int",size:4,grp:"heap"}
+  ],
+  steps:[
+    {line:-1,say:"Heap blocks outlive the function that made them, so the compiler cannot clean them up for you. Press **Next step**."},
+    {line:0,ops:[{id:"p",vis:1,to:"blk"},{id:"blk",vis:1,v:"??",state:"uninit"}],say:"`malloc` finds a free block and returns its address. The block's contents are **uninitialized**: whatever was there before.",
+     hack:["// Jack: let p = Memory.alloc(1);","// returns an address inside RAM[2048..16383]"]},
+    {line:1,ops:[{id:"blk",v:"5",state:""}],say:"`*p = 5` initializes it."},
+    {line:2,ops:[{id:"q",vis:1,to:"blk"}],say:"`q` is a second pointer to the same block. Copying a pointer copies the address, not the block."},
+    {line:3,ops:[{id:"blk",state:"freed",note:"freed"}],say:"`free(p)` returns the block to the allocator. It does **not** change `p` or `q`: both still hold 0x5000, and both now dangle (red).",
+     hack:["do Memory.deAlloc(p);","// the block returns to the free list; p keeps its old address"]},
+    {line:4,ops:[{id:"blk",v:"8",note:"UB"}],say:"Writing through `q` is **undefined behavior**. It may seem to work, may corrupt the allocator's bookkeeping, or may crash later in unrelated code."},
+    {line:5,ops:[{id:"p",to:null}],say:"`p = NULL` fixes only p. `q` still dangles, which is why one clear owner matters more than nulling pointers."}
+  ]}
+];
+var cur={scene:0,step:0}, S={};
+function applyOps(sc,k){
+  var st={};
+  sc.rows.forEach(function(r){st[r.id]=Object.assign({},r,{vis:false,v:"",to:undefined,state:"",note:""})});
+  for(var i=0;i<=k;i++){(sc.steps[i].ops||[]).forEach(function(o){Object.assign(st[o.id],o)})}
+  return st;
+}
+function renderTabs(){
+  var h="";
+  SCENES.forEach(function(s,i){h+='<button class="tab" role="tab" aria-selected="'+(i===cur.scene)+'" data-i="'+i+'">'+esc(s.name)+'</button>'});
+  $("sceneTabs").innerHTML=h;
+}
+function renderViz(){
+  var sc=SCENES[cur.scene], step=sc.steps[cur.step];
+  S=applyOps(sc,cur.step);
+  $("vcode").innerHTML=sc.code.map(function(ln,i){
+    return '<div class="ln'+(i===step.line?" on":"")+'"><span class="no">'+(i+1)+'</span><span>'+hl(ln)+'</span></div>';
+  }).join("");
+  var changed={};(step.ops||[]).forEach(function(o){changed[o.id]=1});
+  var h="",lastGrp=null;
+  sc.rows.forEach(function(r){
+    var s=S[r.id];
+    if(r.grp&&r.grp!==lastGrp){h+='<div class="grp">'+esc(r.grp)+'</div>';lastGrp=r.grp}
+    var cls="row"+(s.vis?"":" empty")+(s.state?" "+s.state:"")+(changed[r.id]?" flash":"");
+    var inner;
+    if(!s.vis){
+      inner='<div class="cellbox w'+r.size+'"><span class="nm">free slot</span></div>';
+    }else{
+      var val=s.v, dang=false;
+      if(s.ptr){
+        if(s.to===undefined) val="??";
+        else if(s.to===null) val="NULL";
+        else {val=hex(S[s.to].a); var t=S[s.to]; dang=(t.state==="freed"||t.state==="dead")&&s.state!=="dead"}
+      }
+      inner='<div class="cellbox w'+r.size+(s.ptr?" ptr":"")+(dang?" dangling":"")+'" data-cell="'+r.id+'">'
+        +'<span class="nm">'+esc(s.n)+'</span><span class="ty">'+esc(s.t)+" · "+r.size+' B</span>'
+        +(s.note?'<span class="pill">'+esc(s.note)+'</span>':"")
+        +(dang?'<span class="pill">dangling</span>':"")
+        +'<span class="val">'+esc(val)+'</span></div>';
+    }
+    h+='<div class="'+cls+'"><span class="addr">'+hex(r.a)+'</span>'+inner+'</div>';
+  });
+  $("mem").innerHTML=h;
+  $("say").innerHTML="<p>"+inline(step.say)+"</p>";
+  var hk=step.hack;
+  $("hackpre").innerHTML=hk?hlAsm(hk.join("\n")):'<span class="cm">// Press Next step. The matching Hack or VM code appears here.</span>';
+  $("hacklbl").textContent=(hk&&hk[0].indexOf("push")===0)?"The same move in Hack VM code":(hk&&hk[0].indexOf("//")===0)?"How Hack and the VM see it":"The same move in Hack";
+  $("stepno").textContent="step "+cur.step+" of "+(sc.steps.length-1);
+  $("prev").disabled=cur.step===0;
+  $("next").disabled=cur.step===sc.steps.length-1;
+  requestAnimationFrame(drawArrows);
+}
+function drawArrows(){
+  var wrap=$("memwrap"),wr=wrap.getBoundingClientRect(),svg=$("arrows");
+  svg.setAttribute("width",wr.width);svg.setAttribute("height",wr.height);
+  svg.setAttribute("viewBox","0 0 "+wr.width+" "+wr.height);
+  var k=0,out="";
+  var sc=SCENES[cur.scene];
+  sc.rows.forEach(function(r){
+    var s=S[r.id];
+    if(!s||!s.vis||!s.ptr||!s.to||s.state==="dead")return;
+    var t=S[s.to];if(!t||!t.vis)return;
+    var a=wrap.querySelector('[data-cell="'+r.id+'"]'),b=wrap.querySelector('[data-cell="'+s.to+'"]');
+    if(!a||!b)return;
+    var ra=a.getBoundingClientRect(),rb=b.getBoundingClientRect();
+    var x0=ra.right-wr.left,y0=ra.top+ra.height/2-wr.top,x1=rb.right-wr.left+3,y1=rb.top+rb.height/2-wr.top;
+    var lane=wr.width-16-(k%4)*14;k++;
+    var bad=(t.state==="freed"||t.state==="dead");
+    out+='<path class="arr'+(bad?" dang":"")+'" d="M'+x0+" "+y0+" C"+lane+" "+y0+","+lane+" "+y1+","+x1+" "+y1+'" marker-end="url(#'+(bad?"ahb":"ah")+')"/>';
+  });
+  $("arrg").innerHTML=out;
+}
+$("sceneTabs").addEventListener("click",function(e){
+  var b=e.target.closest(".tab");if(!b)return;
+  cur.scene=+b.dataset.i;cur.step=0;renderTabs();renderViz();
+});
+$("next").addEventListener("click",function(){if(cur.step<SCENES[cur.scene].steps.length-1){cur.step++;renderViz()}});
+$("prev").addEventListener("click",function(){if(cur.step>0){cur.step--;renderViz()}});
+$("reset").addEventListener("click",function(){cur.step=0;renderViz()});
+window.addEventListener("resize",function(){drawArrows()});
+if(window.ResizeObserver){new ResizeObserver(function(){drawArrows()}).observe($("memwrap"))}
+if(document.fonts&&document.fonts.ready){document.fonts.ready.then(drawArrows)}
+
+/* ---------- arithmetic lab ---------- */
+var LAB={types:[["char",1],["short",2],["int",4],["double",8]],t:2,i:2,showC:true};
+var BASE=0x1000,START=0x0FF8,N=4,COLS=8,ROWS=6;
+function renderLabTypes(){
+  $("typeSeg").innerHTML=LAB.types.map(function(t,i){return '<button type="button" data-t="'+i+'" aria-pressed="'+(i===LAB.t)+'">'+t[0]+'</button>'}).join("");
+}
+function renderLab(){
+  var tn=LAB.types[LAB.t][0],sz=LAB.types[LAB.t][1],i=LAB.i;
+  var pA=BASE+i*sz,cA=BASE+i,inb=i>=0&&i<N,past=i===N,arrEnd=BASE+N*sz;
+  $("idxv").textContent=i;
+  var h="";
+  for(var r=0;r<ROWS;r++){
+    var ra=START+r*COLS;
+    h+='<div class="brow"><span class="addr">'+hex(ra)+'</span><div class="bcells">';
+    for(var c=0;c<COLS;c++){
+      var a=ra+c,cls="b",label="",tag=[];
+      if(a>=BASE&&a<arrEnd){
+        var el=Math.floor((a-BASE)/sz);
+        cls+=" in e"+(el%2);
+        if((a-BASE)%sz===0)label="a["+el+"]";
+      }
+      if(a>=pA&&a<pA+sz)cls+=inb?" sel":" selbad";
+      if(a===pA)tag.push("p+i");
+      if(LAB.showC&&a===cA){cls+=" cstart";tag.push("(char*)p+i")}
+      h+='<span class="'+cls+'"'+(tag.length?' data-tag="'+esc(tag.join(" / "))+'"':"")+'>'+label+'</span>';
+    }
+    h+='</div></div>';
+  }
+  $("bytes").innerHTML=h;
+  var isign=i<0?"("+i+")":String(i);
+  $("calc").innerHTML=
+    '<div><span class="k">p + i</span><span>'+hex(BASE)+" + "+isign+" x "+sz+" = <b>"+hex(pA)+"</b></span></div>"+
+    (LAB.showC?'<div><span class="k">(char *)p + i</span><span>'+hex(BASE)+" + "+isign+" = <b>"+hex(cA)+"</b></span></div>":"");
+  var st=$("status");
+  if(inb){st.className="status ok";st.textContent="Valid. *p reads "+sz+" byte"+(sz>1?"s":"")+" at "+hex(pA)+": element a["+i+"] of type "+tn+".";}
+  else if(past){st.className="status warn";st.textContent="One past the end. Forming and comparing this pointer is legal (it is how end markers work). Reading or writing *p is undefined.";}
+  else{st.className="status bad";st.textContent="Before the start of the array. In standard C even computing this pointer is undefined behavior, and dereferencing it reads memory that is not part of a.";}
+}
+$("typeSeg").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;LAB.t=+b.dataset.t;renderLabTypes();renderLab()});
+$("idx").addEventListener("input",function(e){LAB.i=+e.target.value;renderLab()});
+$("showc").addEventListener("change",function(e){LAB.showC=e.target.checked;renderLab()});
+
+/* ---------- Q&A ---------- */
+function parseQA(txt){
+  var out=[],cat="",cur=null,mode="q";
+  txt.split("\n").forEach(function(ln){
+    if(ln.indexOf("## ")===0){cat=ln.slice(3).trim();return}
+    if(ln.indexOf("### ")===0){cur={cat:cat,q:ln.slice(4).trim(),qa:[],aa:[]};out.push(cur);mode="q";return}
+    if(!cur)return;
+    if(ln.trim()===">>>"){mode="a";return}
+    (mode==="q"?cur.qa:cur.aa).push(ln);
+  });
+  return out;
+}
+function blocks(lines){
+  var html="",i=0;
+  while(i<lines.length){
+    var ln=lines[i];
+    if(ln.indexOf("```")===0){
+      var lang=ln.slice(3).trim(),buf=[];i++;
+      while(i<lines.length&&lines[i].indexOf("```")!==0){buf.push(lines[i]);i++}
+      i++;
+      html+='<pre class="cb"><code>'+hl(buf.join("\n"),lang)+'</code></pre>';continue;
+    }
+    if(ln.indexOf("- ")===0){
+      var items=[];
+      while(i<lines.length&&lines[i].indexOf("- ")===0){items.push(lines[i].slice(2));i++}
+      html+="<ul>"+items.map(function(t){return "<li>"+inline(t)+"</li>"}).join("")+"</ul>";continue;
+    }
+    if(!ln.trim()){i++;continue}
+    var p=[];
+    while(i<lines.length&&lines[i].trim()&&lines[i].indexOf("```")!==0&&lines[i].indexOf("- ")!==0){p.push(lines[i]);i++}
+    html+="<p>"+inline(p.join(" "))+"</p>";
+  }
+  return html;
+}
+var QA=parseQA($("qa-src").textContent);
+$("qcount").textContent=QA.length;
+var KEY="ptr-guide-marks-v1",marks={};
+try{marks=JSON.parse(localStorage.getItem(KEY)||"{}")||{}}catch(e){marks={}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(marks))}catch(e){}}
+var catF="All",onlyRev=false,revealAll=false,query="";
+var cats=["All"].concat(QA.map(function(q){return q.cat}).filter(function(c,i,a){return a.indexOf(c)===i}));
+function renderCats(){
+  $("cats").innerHTML=cats.map(function(c){
+    var n=c==="All"?QA.length:QA.filter(function(q){return q.cat===c}).length;
+    return '<button type="button" class="cat" data-c="'+esc(c)+'" aria-pressed="'+(c===catF)+'">'+esc(c)+'<span class="n">'+n+'</span></button>';
+  }).join("");
+}
+function buildList(){
+  $("qlist").innerHTML=QA.map(function(q,i){
+    var body=blocks(q.qa);
+    return '<article class="q" id="q'+(i+1)+'" data-i="'+i+'">'
+      +'<div class="q-head"><span class="q-n">Q'+(i+1)+'</span><h3>'+inline(q.q)+'</h3></div>'
+      +'<div class="q-cat">'+esc(q.cat)+'</div>'
+      +(body?'<div class="q-body">'+body+'</div>':"")
+      +'<div class="q-ans" hidden>'+blocks(q.aa)+'</div>'
+      +'<div class="q-act"><button type="button" class="btn" data-act="reveal" aria-expanded="false">Show answer</button>'
+      +'<span class="q-marks" hidden><button type="button" class="btn got" data-act="got">Got it</button><button type="button" class="btn rev" data-act="rev">Review later</button></span></div>'
+      +'</article>';
+  }).join("");
+  QA.forEach(function(q,i){paintMark(i)});
+}
+function card(i){return $("q"+(i+1))}
+function setReveal(el,show){
+  el.querySelector(".q-ans").hidden=!show;
+  el.querySelector(".q-marks").hidden=!show;
+  var b=el.querySelector('[data-act="reveal"]');
+  b.textContent=show?"Hide answer":"Show answer";b.setAttribute("aria-expanded",show);
+}
+function paintMark(i){
+  var el=card(i),m=marks[i];
+  el.classList.toggle("got",m==="got");el.classList.toggle("review",m==="rev");
+  el.querySelector('[data-act="got"]').classList.toggle("on",m==="got");
+  el.querySelector('[data-act="rev"]').classList.toggle("on",m==="rev");
+}
+function progress(){
+  var g=0,r=0;Object.keys(marks).forEach(function(k){if(marks[k]==="got")g++;else if(marks[k]==="rev")r++});
+  $("ptext").textContent=g+" of "+QA.length+" got it · "+r+" to review";
+  $("pbar").style.width=(100*g/QA.length)+"%";
+}
+function applyFilter(){
+  var shown=0,qq=query.toLowerCase();
+  QA.forEach(function(q,i){
+    var ok=(catF==="All"||q.cat===catF)&&(!onlyRev||marks[i]==="rev");
+    if(ok&&qq){ok=(q.q+" "+q.qa.join(" ")+" "+q.aa.join(" ")).toLowerCase().indexOf(qq)>=0}
+    card(i).hidden=!ok;if(ok)shown++;
+  });
+  $("qempty").hidden=shown>0;
+}
+$("cats").addEventListener("click",function(e){
+  var b=e.target.closest(".cat");if(!b)return;catF=b.dataset.c;renderCats();applyFilter();
+});
+$("qsearch").addEventListener("input",function(e){query=e.target.value.trim();applyFilter()});
+$("showall").addEventListener("click",function(e){
+  revealAll=!revealAll;e.currentTarget.setAttribute("aria-pressed",revealAll);
+  e.currentTarget.textContent=revealAll?"Hide all answers":"Reveal all answers";
+  QA.forEach(function(q,i){setReveal(card(i),revealAll)});
+});
+$("onlyrev").addEventListener("click",function(e){
+  onlyRev=!onlyRev;e.currentTarget.setAttribute("aria-pressed",onlyRev);
+  e.currentTarget.textContent=onlyRev?"Show all questions":"Review list only";applyFilter();
+});
+$("clearmarks").addEventListener("click",function(){marks={};save();QA.forEach(function(q,i){paintMark(i)});progress();applyFilter()});
+$("qlist").addEventListener("click",function(e){
+  var b=e.target.closest("button[data-act]");if(!b)return;
+  var el=b.closest(".q"),i=+el.dataset.i,act=b.dataset.act;
+  if(act==="reveal"){setReveal(el,el.querySelector(".q-ans").hidden);return}
+  var v=act==="got"?"got":"rev";
+  if(marks[i]===v)delete marks[i];else marks[i]=v;
+  save();paintMark(i);progress();if(onlyRev)applyFilter();
+});
+
+/* init */
+renderTabs();renderViz();
+renderLabTypes();renderLab();
+renderCats();buildList();progress();applyFilter();
+})();
+</script>
+
+</body></html>
