@@ -50,4 +50,4 @@ This project was made entirely with [Claude](https://claude.ai), Anthropic's AI 
 
 ## License
 
-Add the license of your choice here.
+(None)
